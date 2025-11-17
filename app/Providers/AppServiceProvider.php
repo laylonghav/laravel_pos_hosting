@@ -24,8 +24,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
-        if ($this->app->environment('production')) {
+        // Force HTTPS when APP_URL uses https
+        if (str_starts_with(env('APP_URL', ''), 'https://')) {
             URL::forceScheme('https');
+            URL::forceRootUrl(env('APP_URL'));
         }
     }
 }
