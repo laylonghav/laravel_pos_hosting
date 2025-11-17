@@ -1,0 +1,5 @@
+[build]
+php_version = "8.2"
+php_extensions = [
+  "mongodb"
+]
