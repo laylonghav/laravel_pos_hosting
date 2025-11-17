@@ -1,18 +1,19 @@
-# --- STAGE 1: Build Dependencies and Prepare Application ---
-# Use the FPM (FastCGI Process Manager) base image instead of CLI.
-# This image is designed for web server environments.
+# --- SINGLE STAGE: Build Dependencies and Runtime ---
+# Use the robust FPM (FastCGI Process Manager) base image
 FROM php:8.2-fpm
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Install system dependencies
-# We use '&&' to chain commands, minimizing layers and cleaning up afterward.
+# Install necessary system dependencies, Caddy, and Node.js
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     unzip \
     zip \
+    # Install Caddy web server
+    caddy \
+    # PHP extensions dependencies
     libpng-dev \
     libonig-dev \
     libzip-dev \
@@ -28,26 +29,25 @@ RUN apt-get update && apt-get install -y \
     # Install MongoDB extension
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
-    # FIX: Explicitly enable the MongoDB extension by creating a .ini file
+    # FIX: Explicitly enable the MongoDB extension
     && echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongodb.ini \
+    # Install Node.js 18 and npm
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    # FIX: Ensure Caddy user can read the socket created by www-data
+    && usermod -a -G www-data caddy \
     # Clean up APT caches
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install Node.js 18 and npm
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
 # Copy application files
 COPY . .
 
-# Set permissions for Laravel storage and cache
-# Use the 'www-data' user, which is the default for the FPM image
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Copy Caddy and FPM configuration files
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY www.conf /usr/local/etc/php-fpm.d/www.conf
 
 # Install PHP dependencies (using --no-dev flag is crucial for production)
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
@@ -55,10 +55,14 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-d
 # Install JS dependencies and compile assets
 RUN npm install && npm run build
 
-# Expose port (good practice)
+# Set permissions for Laravel storage and cache
+# The FPM user is 'www-data' (UID 33)
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Expose port (good practice, Caddy will listen on $PORT)
 EXPOSE 8000
 
-# FINAL FIX: Use the 'fpm' user to run the server. 
-# We use 'exec' to ensure signals are passed correctly, and we force the $PORT 
-# for Railway, while running the development server (since we aren't using Nginx/Apache).
-CMD ["sh", "-c", "exec /usr/sbin/php-fpm -F & php artisan serve --env=production --host=0.0.0.0 --port=${PORT}"]
+# CRITICAL FIX: Run PHP-FPM in Daemon mode (-D) so it runs in the background 
+# and Caddy (the main process) runs in the foreground.
+CMD ["sh", "-c", "php-fpm -D && caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"]
