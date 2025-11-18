@@ -1,7 +1,6 @@
 # Use official PHP 8.2 FPM image
-FROM php:8.2-fpm
+FROM php:8.2-fpm-bullseye
 
-# Install system dependencies, PHP extensions, SSL and CA certificates
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -25,17 +24,15 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy Laravel project files
+# Copy Laravel project
 COPY . .
 
-# Install PHP dependencies
+# Install composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Generate Laravel app key
-RUN php artisan key:generate
+# No artisan commands here! (Render will use .env)
+# DON'T RUN: php artisan key:generate
 
-# Expose port 10000 for Render
 EXPOSE 10000
 
-# Start Laravel built-in server
 CMD php artisan serve --host=0.0.0.0 --port=10000
