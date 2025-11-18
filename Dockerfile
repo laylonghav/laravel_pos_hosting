@@ -1,5 +1,5 @@
-# Use official PHP image
-FROM php:8.2-fpm
+# Use PHP image with Debian Bullseye (better OpenSSL support)
+FROM php:8.2-fpm-bullseye
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libssl-dev \
+    libcurl4-openssl-dev \
     zip \
     unzip \
     && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
