@@ -30,7 +30,7 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader
 
 # Generate Laravel app key
-RUN php artisan key:generate
+# RUN php artisan key:generate
 
 # Expose port for Render
 EXPOSE 10000
