@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: laravel-api-hosting
+    env: docker
+    plan: free
+    autoDeploy: true
+    region: singapore
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: DB_CONNECTION
+        value: mongodb
+      - key: DB_URI
+        sync: false
+      - key: DB_DATABASE
+        value: your_db
