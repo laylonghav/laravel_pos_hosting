@@ -1,16 +1,21 @@
-# Use an official PHP image with necessary extensions
+# Use official PHP image
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libssl-dev \
     zip \
     unzip \
     && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
+
+# Install MongoDB extension with SSL/TLS support
+RUN pecl install mongodb \
+    && echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongodb.ini
 
 # Install Composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
@@ -18,16 +23,16 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy Laravel project files
+# Copy project files
 COPY . .
 
-# Install dependencies
+# Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Generate Laravel key
-# RUN php artisan key:generate
+# Generate Laravel app key
+RUN php artisan key:generate
 
-# Expose port 10000 for Render
+# Expose port for Render
 EXPOSE 10000
 
 # Start Laravel server
