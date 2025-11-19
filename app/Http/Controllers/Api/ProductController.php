@@ -82,13 +82,17 @@ class ProductController extends Controller
             "image" => "nullable|image|mimes:jpeg,jpg,png,gif|max:2048",
         ]);
 
-        // Upload to Cloudinary and get secure URL + public ID
-        $uploaded = Cloudinary::uploadApi()->upload($validate['image']->getRealPath(), [
-            'folder' => config('cloudinary.upload_folder', 'img_pos'),
-        ]);
+        if ($req->hasFile('image')) {
 
-        $validated['image_url'] = $uploaded['secure_url'];
-        $validated['image_public_id'] = $uploaded['public_id'];
+            $uploaded = Cloudinary::uploadApi()->upload(
+                $validate['image']->getRealPath(),
+                ['folder' => config('cloudinary.upload_folder', 'img_pos')]
+            );
+
+            $validate['image_url'] = $uploaded['secure_url'];
+            $validate['image_public_id'] = $uploaded['public_id'];
+        }
+
 
         $validate["status"] = $req->status == "1" ? true : false;
 
@@ -141,26 +145,23 @@ class ProductController extends Controller
             "image" => "nullable|image|mimes:jpeg,jpg,png,gif|max:2048",
         ]);
 
-        if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-            // Delete old image from Cloudinary if it exists
-            if (!empty($restaurant->image_public_id)) {
-                try {
-                    Cloudinary::uploadApi()->destroy($restaurant->image_public_id);
-                } catch (\Exception $e) {
-                    // Log or handle error if deletion fails (optional)
-                    logger()->error('Cloudinary delete error: ' . $e->getMessage());
-                }
+        if ($req->hasFile('image')) {
+
+            // Delete old image
+            if (!empty($product->image_public_id)) {
+                Cloudinary::uploadApi()->destroy($product->image_public_id);
             }
 
-            // Upload new image to Cloudinary
-            $uploaded = Cloudinary::uploadApi()->upload($data['image']->getRealPath(), [
-                'folder' => config('cloudinary.upload_folder', 'img_pos'),
-            ]);
+            // Upload new image
+            $uploaded = Cloudinary::uploadApi()->upload(
+                $req->file('image')->getRealPath(),
+                ['folder' => config('cloudinary.upload_folder', 'img_pos')]
+            );
 
-            // Save new image URL and public_id
-            $validated['image_url'] = $uploaded['secure_url'];
-            $validated['image_public_id'] = $uploaded['public_id'];
+            $validate['image_url'] = $uploaded['secure_url'];
+            $validate['image_public_id'] = $uploaded['public_id'];
         }
+
 
         $validate["status"] = $req->status == "1" ? true : false;
 
@@ -197,14 +198,10 @@ class ProductController extends Controller
         }
 
         // Delete image from Cloudinary if it exists
-        if (!empty($restaurant->image_public_id)) {
-            try {
-                Cloudinary::uploadApi()->destroy($restaurant->image_public_id);
-            } catch (\Exception $e) {
-                // Optionally log the error but still proceed to delete the DB record
-                logger()->error('Failed to delete Cloudinary image: ' . $e->getMessage());
-            }
+        if (!empty($product->image_public_id)) {
+            Cloudinary::uploadApi()->destroy($product->image_public_id);
         }
+
 
         // Remove image
         // if ($product->image && Storage::disk("public")->exists($product->image)) {

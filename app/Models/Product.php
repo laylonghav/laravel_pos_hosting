@@ -9,16 +9,16 @@ class Product extends Model
     protected $collection = "products";
     protected $fillable = ["name", "description", "image_url", "image_public_id", "qty", "image", "status", "price", "discount", "category_id", "brand_id"];
 
-    protected $appends = ["image_url"];
+    // protected $appends = ["image_url"];
 
-    public function getImageUrlAttribute()
-    {
-        if (!empty($this->image)) {
-            return asset("storage/" . $this->image);
-        }
+    // public function getImageUrlAttribute()
+    // {
+    //     if (!empty($this->image)) {
+    //         return asset("storage/" . $this->image);
+    //     }
 
-        return null;
-    }
+    //     return null;
+    // }
 
 
     public function detail()
