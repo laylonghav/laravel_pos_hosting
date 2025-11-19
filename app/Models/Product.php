@@ -7,7 +7,7 @@ use MongoDB\Laravel\Eloquent\Model;
 class Product extends Model
 {
     protected $collection = "products";
-    protected $fillable = ["name", "description", "qty", "image", "status", "price", "discount", "category_id", "brand_id"];
+    protected $fillable = ["name", "description", "image_url", "image_public_id", "qty", "image", "status", "price", "discount", "category_id", "brand_id"];
 
     protected $appends = ["image_url"];
 

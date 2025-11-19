@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Traits\ApiResponseTrait;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -80,13 +82,21 @@ class ProductController extends Controller
             "image" => "nullable|image|mimes:jpeg,jpg,png,gif|max:2048",
         ]);
 
+        // Upload to Cloudinary and get secure URL + public ID
+        $uploaded = Cloudinary::uploadApi()->upload($validate['image']->getRealPath(), [
+            'folder' => config('cloudinary.upload_folder', 'img_pos'),
+        ]);
+
+        $validated['image_url'] = $uploaded['secure_url'];
+        $validated['image_public_id'] = $uploaded['public_id'];
+
         $validate["status"] = $req->status == "1" ? true : false;
 
         // Handle upload image
 
-        if ($req->hasFile("image")) {
-            $validate["image"] = $req->file("image")->store("products", "public");
-        }
+        // if ($req->hasFile("image")) {
+        //     $validate["image"] = $req->file("image")->store("products", "public");
+        // }
 
         $product = Product::create($validate);
         $product->load("detail");
@@ -131,19 +141,40 @@ class ProductController extends Controller
             "image" => "nullable|image|mimes:jpeg,jpg,png,gif|max:2048",
         ]);
 
+        if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
+            // Delete old image from Cloudinary if it exists
+            if (!empty($restaurant->image_public_id)) {
+                try {
+                    Cloudinary::uploadApi()->destroy($restaurant->image_public_id);
+                } catch (\Exception $e) {
+                    // Log or handle error if deletion fails (optional)
+                    logger()->error('Cloudinary delete error: ' . $e->getMessage());
+                }
+            }
+
+            // Upload new image to Cloudinary
+            $uploaded = Cloudinary::uploadApi()->upload($data['image']->getRealPath(), [
+                'folder' => config('cloudinary.upload_folder', 'img_pos'),
+            ]);
+
+            // Save new image URL and public_id
+            $validated['image_url'] = $uploaded['secure_url'];
+            $validated['image_public_id'] = $uploaded['public_id'];
+        }
+
         $validate["status"] = $req->status == "1" ? true : false;
 
         // Handle upload image
 
-        if ($req->hasFile("image")) {
-            //check old image
-            if ($product->image && Storage::disk("public")->exists($product->image)) {
-                Storage::disk("public")->delete($product->image);
-            }
+        // if ($req->hasFile("image")) {
+        //     //check old image
+        //     if ($product->image && Storage::disk("public")->exists($product->image)) {
+        //         Storage::disk("public")->delete($product->image);
+        //     }
 
-            //update new image
-            $validate["image"] = $req->file("image")->store("products", "public");
-        }
+        //     //update new image
+        //     $validate["image"] = $req->file("image")->store("products", "public");
+        // }
 
         $product->update($validate);
         $product->load("detail");
@@ -165,10 +196,20 @@ class ProductController extends Controller
             ];
         }
 
-        // Remove image
-        if ($product->image && Storage::disk("public")->exists($product->image)) {
-            Storage::disk("public")->delete($product->image);
+        // Delete image from Cloudinary if it exists
+        if (!empty($restaurant->image_public_id)) {
+            try {
+                Cloudinary::uploadApi()->destroy($restaurant->image_public_id);
+            } catch (\Exception $e) {
+                // Optionally log the error but still proceed to delete the DB record
+                logger()->error('Failed to delete Cloudinary image: ' . $e->getMessage());
+            }
         }
+
+        // Remove image
+        // if ($product->image && Storage::disk("public")->exists($product->image)) {
+        //     Storage::disk("public")->delete($product->image);
+        // }
 
         $product->delete();
 
